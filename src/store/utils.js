@@ -1,6 +1,41 @@
 import axios from "axios";
 import URI from "urijs";
 import Utils from "../utils";
+import CONFIG from '../../config';
+
+
+axios.interceptors.response.use(
+  (response) => {
+    const fileProxyUrls = CONFIG.fileProxyUrls;
+    const proxy = (href) => {
+      fileProxyUrls.forEach((_, index) => {
+        if((index & 1) === 0) {
+          const prefix = fileProxyUrls[index];
+          const proxy = fileProxyUrls[index + 1];
+          if(href.startsWith(prefix)){
+            href = href.replace(prefix, proxy);
+          }
+        }
+      });
+      return href;
+    }
+    if (response.data.type === "FeatureCollection") {
+      let features = response.data.features;
+      for (const [index, featureValue] of Object.entries(features)) {
+        let assets = featureValue.assets;
+        Object.entries(assets).forEach(([assetKey, assetValue]) => {if(assetValue.href){ assetValue.href = proxy(assetValue.href)}});
+      }
+    }
+    if (response.data.type === "Feature") {
+      let assets = response.data.assets;
+      Object.entries(assets).forEach(([assetKey, assetValue]) => {if(assetValue.href){assetValue.href = proxy(assetValue.href)}});
+    }
+    return response;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+)
 
 export class Loading {
 
